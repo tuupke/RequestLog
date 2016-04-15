@@ -39,7 +39,7 @@ class RequestLogMiddleware
 
         $bulk->insert([
             "time"     => new UTCDatetime(microtime(true) * 1000),
-            "duartion" => (microtime(true) - $this->start) * 1000 . ' ms',
+            "duration" => (microtime(true) - $this->start) * 1000 . ' ms',
             "request"  => $this->getGet($request),
             "response" => $this->getGet($response),
         ]);
