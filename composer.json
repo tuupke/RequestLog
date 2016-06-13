@@ -1,5 +1,5 @@
 {
-    "name": "pharmit/requestlog",
+    "name": "eventix/requestlog",
     "description": "Provides middleware to log full request and response to some storage instance.",
     "keywords": [
         "request",
@@ -7,7 +7,7 @@
         "log",
         "routes"
     ],
-    "homepage": "https://pharmit.nl",
+    "homepage": "https://eventix.nio",
     "authors": [
         {
             "name": "Mart Pluijmaekers",
@@ -22,7 +22,7 @@
     },
     "autoload": {
         "psr-4": {
-            "PharmIT\\RequestLog\\": "src"
+            "Eventix\\RequestLog\\": "src"
         }
     },
     "minimum-stability": "stable"
