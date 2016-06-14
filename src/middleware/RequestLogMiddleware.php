@@ -1,11 +1,8 @@
 <?php namespace Eventix\RequestLog\Middleware;
 
 use Closure;
-
 use Elasticsearch\ClientBuilder;
 use Uuid;
-use OAuthUser;
-use App;
 
 
 class RequestLogMiddleware
@@ -14,10 +11,12 @@ class RequestLogMiddleware
     private $hosts;
     private $start;
     private $requestUuid;
+    private $extra = [];
 
     public function __construct($hosts)
     {
         $this->hosts = [$hosts];
+        $this->start = microtime(true);
         $this->requestUuid = (string)Uuid::generate();
     }
 
@@ -30,10 +29,8 @@ class RequestLogMiddleware
      */
     public function handle($request, Closure $next)
     {
-        $this->start = microtime(true);
         return $next($request);
     }
-
 
     /**
      * Handle outgoing response
@@ -44,8 +41,7 @@ class RequestLogMiddleware
      */
     public function terminate($request, $response)
     {
-//        $this->deleteIndex('requests');
-//        $this->createIndex('requests');
+//        $this->deleteIndex('requests');$this->createIndex('requests');
         $client = $this->getClient();
 
         $data = [
@@ -57,9 +53,7 @@ class RequestLogMiddleware
             "response"  => $response->getContent(),
         ];
 
-        if(OAuthUser::isValid()){
-            $data['user'] = json_decode(OAuthUser::get()->toJson());
-        }
+        $data = array_merge($data, $this->extra);
 
         $params = [
             'index' => 'requests',
@@ -69,8 +63,62 @@ class RequestLogMiddleware
         ];
 
         if(env('REQUEST_LOG', false)){
-            $r = $client->index($params); // Catch Fails?
+            $r = $client->index($params); // TODO: log fails
         }
+    }
+
+    /**
+     * Create an index
+     *
+     * @param $name
+     */
+    public function createIndex($name){
+        $client = $this->getClient();
+
+        $params = [
+            'index' => $name,
+            'body' => [
+                'settings' => [
+                    'number_of_shards' => 2,
+                    'number_of_replicas' => 0
+                ]
+            ]
+        ];
+
+        $client->indices()->create($params);
+    }
+
+    /**
+     * Delete an index
+     *
+     * @param $name
+     */
+    public function deleteIndex($name){
+        $client = $this->getClient();
+
+        $params = [
+            'index' => $name
+        ];
+
+        $client->indices()->delete($params);
+    }
+
+    /**
+     * Sets up an Elasticsearch client
+     *
+     * @return \Elasticsearch\Client
+     */
+    public function getClient(){
+        return ClientBuilder::create()->setHosts($this->hosts)->build();
+    }
+
+    /**
+     * Get extra payload for RequestLog
+     *
+     * @return array
+     */
+    public function getExtra(){
+        return $this->extra;
     }
 
     /**
@@ -116,60 +164,23 @@ class RequestLogMiddleware
     }
 
     /**
-     * Sets up an Elasticsearch client
-     *
-     * @return \Elasticsearch\Client
-     */
-    public function getClient(){
-        return ClientBuilder::create()->setHosts($this->hosts)->build();
-    }
-
-    /**
-     * Create an index
-     *
-     * @param $name
-     */
-    public function createIndex($name){
-        $client = $this->getClient();
-
-        $params = [
-            'index' => $name,
-            'body' => [
-                'settings' => [
-                    'number_of_shards' => 2,
-                    'number_of_replicas' => 0
-                ]
-            ]
-        ];
-
-        $response = $client->indices()->create($params);
-//        print_r($response);
-    }
-
-    /**
-     * Delete an index
-     *
-     * @param $name
-     */
-    public function deleteIndex($name){
-        $client = $this->getClient();
-
-        $params = [
-            'index' => $name
-        ];
-
-        $response = $client->indices()->delete($params);
-    }
-
-
-
-    /**
      * Get the current Request UUID
      *
      * @return string
      */
-    public function getRequestUuid(){
+    public function getRequestLogUuid(){
         return $this->requestUuid;
     }
+
+    /**
+     * Set extra payload to RequestLog
+     *
+     * @return array
+     */
+    public function setExtra($array = []){
+        return $this->extra = array_merge($this->extra, $array);
+    }
+
+
 
 }
