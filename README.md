@@ -1,7 +1,7 @@
 # Installation #
 
-Make sure Elasticsearch is running
-https://bitbucket.org/eventix/eventix-3.0/wiki/Request%20Logging%20/%20Elasticsearch
+Make sure Elasticsearch is running and a `requests` index exists
+(For Eventix Team: https://bitbucket.org/eventix/eventix-3.0/wiki/Request%20Logging%20/%20Elasticsearch)
 
 Add `Eventix\RequestLog\RequestLogServiceProvider::class` to `config/app.php` (ServiceProviders)
 Add `\Eventix\RequestLog\Middleware\RequestLogMiddleware::class` to `app/http/Kernel.php` to the global middleware

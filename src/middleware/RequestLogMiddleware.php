@@ -44,8 +44,8 @@ class RequestLogMiddleware
      */
     public function terminate($request, $response)
     {
-        $this->deleteIndex('requests');
-        $this->createIndex('requests');
+//        $this->deleteIndex('requests');
+//        $this->createIndex('requests');
         $client = $this->getClient();
 
         $data = [
