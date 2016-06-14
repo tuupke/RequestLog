@@ -1,20 +1,24 @@
-<?php namespace PharmIT\RequestLog\Middleware;
+<?php namespace Eventix\RequestLog\Middleware;
 
 use Closure;
 
-use MongoDB\BSON\UTCDatetime;
-use MongoDB\Driver\Manager;
-use MongoDB\Driver\BulkWrite;
+use Elasticsearch\ClientBuilder;
+use Uuid;
+use OAuthUser;
+use App;
+
 
 class RequestLogMiddleware
 {
 
+    private $hosts;
     private $start;
-    private $cURI;
+    private $requestUuid;
 
-    public function __construct($connectionURI)
+    public function __construct($hosts)
     {
-        $this->cURI = $connectionURI;
+        $this->hosts = [$hosts];
+        $this->requestUuid = (string)Uuid::generate();
     }
 
     /**
@@ -27,24 +31,46 @@ class RequestLogMiddleware
     public function handle($request, Closure $next)
     {
         $this->start = microtime(true);
-
         return $next($request);
     }
 
+
+    /**
+     * Handle outgoing response
+     * Processed after response is sent
+     *
+     * @param $request
+     * @param $response
+     */
     public function terminate($request, $response)
     {
-        $manager = new Manager("mongodb://localhost:27017");
+        $this->deleteIndex('requests');
+        $this->createIndex('requests');
+        $client = $this->getClient();
 
-        $bulk = new BulkWrite;
-
-        $bulk->insert([
-            "time"     => new UTCDatetime(microtime(true) * 1000),
-            "duration" => (microtime(true) - $this->start) * 1000 . ' ms',
+        $data = [
+            "time"     => date('Y-m-d\TH:i:sP'),
+            "timestamp"=> time(),
+            "duration" => (microtime(true) - $this->start) * 1000,
+            "durationUnit" => 'ms',
             "request"  => $this->getGet($request),
-            "response" => $this->getGet($response),
-        ]);
+            "response"  => $response->getContent(),
+        ];
 
-        $manager->executeBulkWrite('MedAPI.RequestResponse', $bulk);
+        if(OAuthUser::isValid()){
+            $data['user'] = json_decode(OAuthUser::get()->toJson());
+        }
+
+        $params = [
+            'index' => 'requests',
+            'type' => 'request',
+            'id' => $this->requestUuid,
+            'body' => $data,
+        ];
+
+        if(env('REQUEST_LOG', false)){
+            $r = $client->index($params); // Catch Fails?
+        }
     }
 
     /**
@@ -87,6 +113,63 @@ class RequestLogMiddleware
         }
 
         return $toFill;
+    }
+
+    /**
+     * Sets up an Elasticsearch client
+     *
+     * @return \Elasticsearch\Client
+     */
+    public function getClient(){
+        return ClientBuilder::create()->setHosts($this->hosts)->build();
+    }
+
+    /**
+     * Create an index
+     *
+     * @param $name
+     */
+    public function createIndex($name){
+        $client = $this->getClient();
+
+        $params = [
+            'index' => $name,
+            'body' => [
+                'settings' => [
+                    'number_of_shards' => 2,
+                    'number_of_replicas' => 0
+                ]
+            ]
+        ];
+
+        $response = $client->indices()->create($params);
+//        print_r($response);
+    }
+
+    /**
+     * Delete an index
+     *
+     * @param $name
+     */
+    public function deleteIndex($name){
+        $client = $this->getClient();
+
+        $params = [
+            'index' => $name
+        ];
+
+        $response = $client->indices()->delete($params);
+    }
+
+
+
+    /**
+     * Get the current Request UUID
+     *
+     * @return string
+     */
+    public function getRequestUuid(){
+        return $this->requestUuid;
     }
 
 }

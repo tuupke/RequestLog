@@ -1,8 +1,8 @@
-<?php namespace PharmIT\RequestLog;
+<?php namespace Eventix\RequestLog;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\Application;
-use PharmIT\RequestLog\Middleware\RequestLogMiddleware;
+use Eventix\RequestLog\Middleware\RequestLogMiddleware;
 
 class RequestLogServiceProvider extends ServiceProvider
 {
@@ -24,7 +24,7 @@ class RequestLogServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(RequestLogMiddleware::class, function ($app) {
-            return new RequestLogMiddleware($app['config']->get('requestLogger.connection.uri'));
+            return new RequestLogMiddleware(env('REQUEST_LOG_HOST', $app['config']->get('requestLogger.host')));
         });
 
         $this->mergeConfigFrom(self::$configPath, 'requestLogger');
